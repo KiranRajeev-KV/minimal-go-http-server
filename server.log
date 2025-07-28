@@ -1,0 +1,12 @@
+[2025/07/28 22:53:25] INFO: Starting HTTP server on 127.0.0.1:6969
+[2025/07/28 22:53:25] INFO: Server successfully started and listening for connections
+[2025/07/28 22:53:30] INFO: New connection from 127.0.0.1:35702
+[2025/07/28 22:53:30] INFO: Read 78 bytes from 127.0.0.1:35702
+[2025/07/28 22:53:30] REQUEST: GET / from 127.0.0.1:35702
+[2025/07/28 22:53:30] INFO: Serving root path
+[2025/07/28 22:53:30] RESPONSE: 200 for /
+[2025/07/28 22:53:32] INFO: New connection from 127.0.0.1:35704
+[2025/07/28 22:53:32] INFO: Read 88 bytes from 127.0.0.1:35704
+[2025/07/28 22:53:32] REQUEST: GET /echo/hello from 127.0.0.1:35704
+[2025/07/28 22:53:32] INFO: Echoing content: 'hello'
+[2025/07/28 22:53:32] RESPONSE: 200 for /echo/hello
