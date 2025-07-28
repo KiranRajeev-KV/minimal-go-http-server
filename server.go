@@ -50,6 +50,58 @@ type HTTPRequest struct {
 	Body    []byte
 }
 
+type HTTPResponse struct {
+    Headers map[string]string
+    Code    int
+    Body    []byte
+}
+
+const StatusOK = 200
+const StatusCreated = 201
+const StatusNotFound = 404
+const StatusInternalServerError = 500
+const StatusMethodNotAllowed = 405
+
+func StatusText(code int) string {
+    switch code {
+    case StatusOK:
+        return "OK"
+    case StatusCreated:
+        return "Created"
+    case StatusNotFound:
+        return "Not Found"
+    case StatusInternalServerError:
+		return "Internal Server Error"
+	case StatusMethodNotAllowed:
+		return "Method Not Allowed"
+	}
+
+    return ""
+}
+
+func (response HTTPResponse) Write() []byte {
+	// standard HTTP response format of "HTTP/1.1 {code} {status}\r\n{headers}\r\n{body}"
+    str := fmt.Sprintf("HTTP/1.1 %d %s\r\n", response.Code, StatusText(response.Code))
+
+	// add headers to the response
+    for header, value := range response.Headers {
+        str += fmt.Sprintf("%s: %s\r\n", header, value)
+    }
+	
+	// add Content-Length header if body is present
+    if len(response.Body) > 0 {
+        str += fmt.Sprintf("Content-Length: %d\r\n", len(response.Body))
+    }
+	// end of headers section
+    str += "\r\n"
+
+	// append body if present
+    if len(response.Body) > 0 {
+        str += string(response.Body)
+    }
+    return []byte(str)
+}
+
 func listenReq(conn net.Conn) {
 	defer conn.Close()
 
@@ -125,8 +177,12 @@ func listenReq(conn net.Conn) {
 
 	// Respond with 200 OK for "/" path, 404 Not Found otherwise.
 	if request.Url == "/" {
+		response := HTTPResponse{
+			Code: StatusOK,
+			Headers: headers,
+		}
 		log("INFO", "Serving root path")
-		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		conn.Write(response.Write())
 		log("RESPONSE", "200 for %s", request.Url)
 
 		// /echo/{content}
@@ -136,8 +192,12 @@ func listenReq(conn net.Conn) {
 
 		if len(uriParts) != 3 {
 			// Handle invalid echo requests (too few or too many parts)
+			response := HTTPResponse{
+				Code: StatusNotFound,
+				Headers: headers,
+			}
 			log("ERROR", "Invalid echo request format: %s", request.Url)
-			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			conn.Write(response.Write())
 			log("RESPONSE", "404 for %s", request.Url)
 		} else {
 			// Valid echo request: exactly 3 parts ["", "echo", "content"]
@@ -148,8 +208,15 @@ func listenReq(conn net.Conn) {
 			// Content-Type: text/plain indicates plain text response
 			// Content-Length: strLen specifies the length of the response body
 			// The response body is the string extracted from the URI
-			response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", strLen, str)
-			conn.Write([]byte(response))
+			response := HTTPResponse{
+				Code: StatusOK,
+				Headers: map[string]string{
+					"Content-Type":   "text/plain",
+					"Content-Length": fmt.Sprintf("%d", strLen),
+				},
+				Body: []byte(str),
+			}
+			conn.Write(response.Write())
 			log("RESPONSE", "200 for %s", request.Url)
 		}
 		// /user-agent
@@ -157,16 +224,26 @@ func listenReq(conn net.Conn) {
 		usrAg := request.Headers["User-Agent"]
 
 		if usrAg == "" {
+			// User-Agent header is missing, respond with 400 Bad Request
 			log("ERROR", "User-Agent header missing")
-			conn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
+			response := HTTPResponse{
+				Code: StatusNotFound,
+				Headers: headers,
+			}
+			conn.Write(response.Write())
 			log("RESPONSE", "400 for %s", request.Url)
 		} else {
 			log("INFO", "User-Agent: %s", usrAg)
 
 			usrAgLen := len(usrAg)
-			response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s", usrAgLen, usrAg)
-
-			conn.Write([]byte(response))
+			response := HTTPResponse{
+				Code: StatusOK,
+				Headers: map[string]string{
+					"Content-Length": fmt.Sprintf("%d", usrAgLen),
+				},
+				Body: []byte(usrAg),
+			}
+			conn.Write(response.Write())
 			log("RESPONSE", "200 for %s", request.Url)
 		}
 		// /get-file or /file for GET/POST
@@ -177,7 +254,11 @@ func listenReq(conn net.Conn) {
 
 		if len(uriParts) != 3 {
 			log("ERROR", "Invalid file request format: %s", request.Url)
-			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			response := HTTPResponse{
+				Code: StatusNotFound,
+				Headers: headers,
+			}
+			conn.Write(response.Write())
 			log("RESPONSE", "404 for %s", request.Url)
 		} else {
 			path := uriParts[2]
@@ -190,7 +271,11 @@ func listenReq(conn net.Conn) {
 				if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
 					log("ERROR", "File not found: %s", filePath)
 
-					conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+					response := HTTPResponse{
+						Code: StatusNotFound,
+						Headers: headers,
+					}
+					conn.Write(response.Write())
 					log("RESPONSE", "404 for %s", request.Url)
 				} else {
 					// File exists, read and serve it
@@ -198,7 +283,11 @@ func listenReq(conn net.Conn) {
 					if err != nil {
 						log("ERROR", "Error opening file %s: %v", filePath, err)
 
-						conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+						response := HTTPResponse{
+							Code: StatusInternalServerError,
+							Headers: headers,
+						}
+						conn.Write(response.Write())
 						log("RESPONSE", "500 for %s", request.Url)
 						return
 					}
@@ -208,18 +297,26 @@ func listenReq(conn net.Conn) {
 					if err != nil {
 						log("ERROR", "Error reading file %s: %v", filePath, err)
 
-						conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+						response := HTTPResponse{
+							Code: StatusInternalServerError,
+							Headers: headers,
+						}
+						conn.Write(response.Write())
 						log("RESPONSE", "500 for %s", request.Url)
 						return
 					}
 
 					log("INFO", "Serving file %s (%d bytes)", filePath, len(content))
 
-					response := fmt.Sprintf(
-						"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
-						len(content), content,
-					)
-					conn.Write([]byte(response))
+					response := HTTPResponse{
+						Code: StatusOK,
+						Headers: map[string]string{
+							"Content-Type":   "application/octet-stream",
+							"Content-Length": fmt.Sprintf("%d", len(content)),
+						},
+						Body: content,
+					}
+					conn.Write(response.Write())
 					log("RESPONSE", "200 for %s", request.Url)
 				}
 			case "POST":
@@ -230,7 +327,11 @@ func listenReq(conn net.Conn) {
 				if err != nil {
 					log("ERROR", "Error creating file %s: %v", filePath, err)
 
-					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+					response := HTTPResponse{
+						Code: StatusInternalServerError,
+						Headers: headers,
+					}
+					conn.Write(response.Write())
 					log("RESPONSE", "500 for %s", request.Url)
 					return
 				}
@@ -240,24 +341,40 @@ func listenReq(conn net.Conn) {
 				if err != nil {
 					log("ERROR", "Error writing to file %s: %v", filePath, err)
 
-					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+					response := HTTPResponse{
+						Code: StatusInternalServerError,
+						Headers: headers,
+					}
+					conn.Write(response.Write())
 					log("RESPONSE", "500 for %s", request.Url)
 					return
 				}
 
 				log("INFO", "Successfully created file: %s", filePath)
-				
-				conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
+
+				response := HTTPResponse{
+					Code: StatusCreated,
+					Headers: headers,
+				}
+				conn.Write(response.Write())
 				log("RESPONSE", "201 for %s", request.Url)
 			default:
 				log("ERROR", "Method not allowed: %s", request.Method)
-				conn.Write([]byte("HTTP/1.1 405 Method Not Allowed\r\n\r\n"))
+				response := HTTPResponse{
+					Code: StatusMethodNotAllowed,
+					Headers: headers,
+				}
+				conn.Write(response.Write())
 				log("RESPONSE", "405 for %s", request.Url)
 			}
 		}
 	} else {
 		log("ERROR", "Route not found: %s %s", request.Method, request.Url)
-		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		response := HTTPResponse{
+			Code: StatusNotFound,
+			Headers: headers,
+		}
+		conn.Write(response.Write())
 		log("RESPONSE", "404 for %s", request.Url)
 	}
 }
