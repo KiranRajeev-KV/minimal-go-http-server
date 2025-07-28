@@ -10,22 +10,8 @@ import (
 const ip = "127.0.0.1"
 const port = "6969"
 
-func main() {
-	l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", ip, port))
-	if err != nil {
-		fmt.Printf("Failed to connect at port %s \n", port)
-		os.Exit(1)
-	}
-
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection", err.Error())
-		os.Exit(1)
-	}
-
-	// Write a basic HTTP response to the client with status 200 OK
-	// \r\n\r\n indicates the end of the HTTP headers
-	// conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+func listenReq(conn net.Conn) {
+	defer conn.Close()
 
 	// req takes the request data from the client
 	// it is a byte slice with a size of 4096 bytes
@@ -96,6 +82,27 @@ func main() {
 		}
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-		conn.Close()
+	}
+}
+
+func main() {
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", ip, port))
+	if err != nil {
+		fmt.Printf("Failed to connect at port %s \n", port)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Server listening on %s:%s\n", ip, port)
+
+	// Accept connections in a loop to handle multiple clients
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection", err.Error())
+			continue // Continue to accept other connections
+		}
+
+		// Handle each connection concurrently using goroutines
+		go listenReq(conn)
 	}
 }
