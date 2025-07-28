@@ -83,5 +83,3 @@ curl http://localhost:6969/file/example.txt
 ```
 
 ---
-
-MIT — do whatever you want.
