@@ -43,6 +43,27 @@ func main() {
 	// Respond with 200 OK for "/" path, 404 Not Found otherwise.
 	if reqLinePart[1] == "/" {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+
+		// /echo/{content}
+	} else if strings.HasPrefix(reqLinePart[1], "/echo") {
+		// if reqLinePart[1] is /echo/auco then uriParts is ["", "echo", "auco"]
+		uriParts := strings.Split(reqLinePart[1], "/")
+
+		if len(uriParts) != 3 {
+			// Handle invalid echo requests (too few or too many parts)
+			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		} else {
+			// Valid echo request: exactly 3 parts ["", "echo", "content"]
+			str := uriParts[2]
+			strLen := len(str)
+
+			// Content-Type: text/plain indicates plain text response
+			// Content-Length: strLen specifies the length of the response body
+			// The response body is the string extracted from the URI
+			response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", strLen, str)
+			conn.Write([]byte(response))
+		}
+
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 		conn.Close()
