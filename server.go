@@ -53,7 +53,7 @@ type HTTPRequest struct {
 func listenReq(conn net.Conn) {
 	defer conn.Close()
 
-	// req takes the request data from the client
+	// rawReq takes the request data from the client
 	// it is a byte slice with a size of 4096 bytes
 	rawReq := make([]byte, 4096)
 
@@ -162,8 +162,10 @@ func listenReq(conn net.Conn) {
 			log("RESPONSE", "400 for %s", request.Url)
 		} else {
 			log("INFO", "User-Agent: %s", usrAg)
+
 			usrAgLen := len(usrAg)
 			response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s", usrAgLen, usrAg)
+
 			conn.Write([]byte(response))
 			log("RESPONSE", "200 for %s", request.Url)
 		}
@@ -184,8 +186,10 @@ func listenReq(conn net.Conn) {
 			switch request.Method {
 			case "GET":
 				log("INFO", "GET file: %s", filePath)
+
 				if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
 					log("ERROR", "File not found: %s", filePath)
+
 					conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 					log("RESPONSE", "404 for %s", request.Url)
 				} else {
@@ -193,6 +197,7 @@ func listenReq(conn net.Conn) {
 					file, err := os.Open(filePath)
 					if err != nil {
 						log("ERROR", "Error opening file %s: %v", filePath, err)
+
 						conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
 						log("RESPONSE", "500 for %s", request.Url)
 						return
@@ -202,12 +207,14 @@ func listenReq(conn net.Conn) {
 					content, err := io.ReadAll(file)
 					if err != nil {
 						log("ERROR", "Error reading file %s: %v", filePath, err)
+
 						conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
 						log("RESPONSE", "500 for %s", request.Url)
 						return
 					}
 
 					log("INFO", "Serving file %s (%d bytes)", filePath, len(content))
+
 					response := fmt.Sprintf(
 						"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
 						len(content), content,
@@ -217,10 +224,12 @@ func listenReq(conn net.Conn) {
 				}
 			case "POST":
 				log("INFO", "POST file: %s (%d bytes)", filePath, len(request.Body))
+				
 				// Write request.Body to the file
 				file, err := os.Create(filePath)
 				if err != nil {
 					log("ERROR", "Error creating file %s: %v", filePath, err)
+
 					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
 					log("RESPONSE", "500 for %s", request.Url)
 					return
@@ -230,12 +239,14 @@ func listenReq(conn net.Conn) {
 				_, err = file.Write(request.Body)
 				if err != nil {
 					log("ERROR", "Error writing to file %s: %v", filePath, err)
+
 					conn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
 					log("RESPONSE", "500 for %s", request.Url)
 					return
 				}
 
 				log("INFO", "Successfully created file: %s", filePath)
+				
 				conn.Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 				log("RESPONSE", "201 for %s", request.Url)
 			default:
