@@ -17,3 +17,11 @@
 [2025/07/28 23:08:54] REQUEST: GET / from 127.0.0.1:45998
 [2025/07/28 23:08:54] INFO: Serving root path
 [2025/07/28 23:08:54] RESPONSE: 200 for /
+[2025/07/29 18:09:03] INFO: Starting HTTP server on 127.0.0.1:6969
+[2025/07/29 18:09:03] INFO: Server successfully started and listening for connections
+[2025/07/29 18:09:10] INFO: New connection from 127.0.0.1:32914
+[2025/07/29 18:09:10] INFO: Read 82 bytes from 127.0.0.1:32914
+[2025/07/29 18:09:10] REQUEST: GET /logs from 127.0.0.1:32914
+[2025/07/29 18:09:10] INFO: Serving logs
+[2025/07/29 18:09:10] INFO: Log file read successfully, size: 1535 bytes
+[2025/07/29 18:09:10] RESPONSE: 200 for /logs

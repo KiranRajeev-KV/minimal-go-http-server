@@ -16,7 +16,6 @@ const port = "6969"
 // Define the temporary directory
 const tempDirectory = "./files"
 
-
 func listenReq(conn net.Conn) {
 	defer conn.Close()
 
@@ -226,6 +225,7 @@ func listenReq(conn net.Conn) {
 					response := HTTPResponse{
 						Code: StatusOK,
 						Headers: map[string]string{
+							// "application/octet-stream" indicates binary data
 							"Content-Type":   "application/octet-stream",
 							"Content-Length": fmt.Sprintf("%d", len(content)),
 						},
@@ -283,6 +283,46 @@ func listenReq(conn net.Conn) {
 				log("RESPONSE", "405 for %s", request.Url)
 			}
 		}
+	} else if request.Url == "/logs" {
+		log("INFO", "Serving logs")
+		file, err := os.Open("server.log")
+		if err != nil {
+			log("ERROR", "Error opening log file: %v", err)
+			response := HTTPResponse{
+				Code:    StatusInternalServerError,
+				Headers: headers,
+			}
+			conn.Write(response.Write(request))
+			log("RESPONSE", "500 for %s", request.Url)
+			return
+		}
+
+		defer file.Close()
+
+		content, err := io.ReadAll(file)
+		if err != nil {
+			log("ERROR", "Error reading log file: %v", err)
+			response := HTTPResponse{
+				Code:    StatusInternalServerError,
+				Headers: headers,
+			}
+			conn.Write(response.Write(request))
+			log("RESPONSE", "500 for %s", request.Url)
+			return
+		}
+
+		log("INFO", "Log file read successfully, size: %d bytes", len(content))
+
+		response := HTTPResponse{
+			Code: StatusOK,
+			Headers: map[string]string{
+				"Content-Type":   "text/plain",
+				"Content-Length": fmt.Sprintf("%d", len(content)),
+			},
+			Body: content,
+		}
+		conn.Write(response.Write(request))
+		log("RESPONSE", "200 for %s", request.Url)
 	} else {
 		log("ERROR", "Route not found: %s %s", request.Method, request.Url)
 		response := HTTPResponse{
