@@ -37,6 +37,7 @@ A minimal HTTP server implemented in Go using the `net` package. It supports bas
 | `/user-agent`       | GET    | Echoes the `User-Agent` header from the request.         |
 | `/file/{filename}`  | GET    | Serves file from `./files/{filename}`.                   |
 | `/file/{filename}`  | POST   | Saves uploaded content to `./files/{filename}`.          |
+| `/logs`             | GET    | Returns the contents of `server.log` as plain text.      |
 
 ---
 
@@ -81,5 +82,11 @@ curl -X POST --data-binary @example.txt http://localhost:6969/file/example.txt
 ```bash
 curl http://localhost:6969/file/example.txt
 ```
+#### `/logs`
+
+```bash
+curl http://localhost:6969/logs
+```
 
 ---
+
